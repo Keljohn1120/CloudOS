@@ -12,7 +12,7 @@ user = fb.login("johnlloydunida0@gmail.com", "password")
 
 cur_dir = ['.']
 while True:
-    root = fb.get_owned_file_ids(user).get('users').get(user.localId).get('owned_files')
+    root = fb.get_owned_file_ids(user).get('users', {}).get(user.localId, {}).get('owned_files', {})
     for directory in cur_dir:
         if (len(directory) > 1):
             root = root.get(directory, {})
@@ -21,7 +21,7 @@ while True:
     for i, file in enumerate(keys):
         print(f'[{str(i)}] {file[0]} ({file[1]})')
     print('type "back" to go back...')
-    choice = input('>>>')
+    choice = input(f'{user.localId}/{"/".join(cur_dir[1:])}>>>')
     
     if (choice in 'back'):
         cur_dir.pop()
@@ -34,8 +34,13 @@ while True:
     if (keys[choice][1] == 'd'):
         cur_dir.append(keys[choice][0])
     else:
-        print(f'reading file {keys[choice][0]}')
-        with open(fb.get_file(user, keys[choice][0]), 'r') as f:
-            for line in f.readlines():
-                print(line, '\n')
-        input("enter to continue...")
+        action = input("Do you want read (r) or delete (d) the file: ")
+        if (action == 'd'):
+            print("Deleting file in", f"users/{user.localId}/owned_files/"+"/".join(cur_dir[1:]))
+            fb.delete_owned_file(user, keys[choice][0], f"users/{user.localId}/owned_files/"+"/".join(cur_dir[1:]))
+        else:
+            print(f'reading file {keys[choice][0]}')
+            with open(fb.get_file(user, keys[choice][0]), 'r') as f:
+                for line in f.readlines():
+                    print(line, '\n')
+            input("enter to continue...")

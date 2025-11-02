@@ -13,7 +13,8 @@ firebaseConfig = {
   "storageBucket": "cloudos-12cdc.firebasestorage.app",
   "messagingSenderId": "710107657823",
   "appId": "1:710107657823:web:5d2104048a1587b84b4dea",
-  "measurementId": "G-VCE7XX9FMR"
+  "measurementId": "G-VCE7XX9FMR",
+  "serviceAccount": "cloudos-12cdc-firebase-adminsdk-fbsvc-9b35e8b6ff.json"
 }
 
 class Firebase:
@@ -53,6 +54,16 @@ class Firebase:
     def get_owned_file_ids(self, user:User) -> dict:
         files = self.db.get(token=user.idToken).val()
         return files if (files) else {}
+    
+    def file_is_owned(self, user:User, file_id:str, d:dict) -> bool:
+        found = False
+        for key in d.keys():
+            if 'type' not in d.get(key):
+                print(d.get(key))
+                found = self.file_is_owned(user, file_id, d.get(key))
+            if key == file_id:
+                return True
+        return found
 
     def get_access_list_ids(self, user:User) -> list[str]:
         files = self.db.child('users').child(user.localId).child('access_list').get(token=user.idToken).val()
@@ -61,6 +72,20 @@ class Firebase:
     def update_file(self, user:User, file_id:str, file_path:str):
         self.storage.child(f'files/{file_id}').put(file_path, token=user.idToken)
         self.db.child('files').child(file_id).child('meta').update({'modified':datetime.now().isoformat()}, token=user.idToken)
+    
+    def delete_owned_file(self, user:User, file_id:str, cloud_path:str):
+        if (not self.file_is_owned(user, file_id, self.get_owned_file_ids(user).get('users'))):
+            print("File is not owned by the user. Can't delete it")
+            return
+        self.storage.delete(f'files/{file_id}', user.idToken)
+        self.db.child('files').child(file_id).set(None, token=user.idToken)
+        root = self.db
+        for directory in cloud_path.split("/"):
+            if (len(directory) > 1):
+             root = root.child(directory)
+        root.child(file_id).set(None, token=user.idToken)
+        print("File is deleted")
+
     
     def get_file(self, user:User, file_id:str) -> str:
         file = self.db.child('files').child(file_id).get(token=user.idToken).val()
