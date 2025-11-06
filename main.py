@@ -18,10 +18,10 @@ user = fb.login("johnlloydunida0@gmail.com", "password")
 #fb.update_file(user, 'documents/minecraft.txt', './test.txt')
 #print(fb.get_file(user, 'hello.txt'))
 
-
 cur_dir = []
 while True:
     root = fb.get_owned_files(user)
+    print(root)
     for directory in cur_dir:
         if (len(directory) > 1):
             root = root.get(directory, {})
@@ -33,9 +33,9 @@ while True:
     choice = input(f'{user.localId}/{"/".join(cur_dir[1:])}>>>')
     
     if (choice in 'back'):
-        cur_dir.pop()
         if (len(cur_dir) == 0):
             break
+        cur_dir.pop()
         continue
     if (not choice.isnumeric()):
         continue

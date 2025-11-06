@@ -9,4 +9,5 @@
 .env
 *.json
 pyvenv.cfg
+output.log
 

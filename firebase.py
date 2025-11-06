@@ -2,7 +2,8 @@ import pyrebase
 from objects import User
 from datetime import datetime
 from scheduling import Computer, UploadProcess, DownloadProcess
-from datetime import datetime
+from typing import Callable
+from threading import Thread
 from time import sleep
 import json
 import os
@@ -18,6 +19,19 @@ firebaseConfig = {
   "measurementId": "G-VCE7XX9FMR",
   "serviceAccount": "cloudos-12cdc-firebase-adminsdk-fbsvc-9b35e8b6ff.json"
 }
+
+
+class CustomThread(Thread):
+    def __init__(self, target, args, on_finish:Callable):
+        super().__init__(target=target, args=args, daemon=True)
+        self.on_finish = on_finish
+        self.target = target
+        self.args = args
+    
+    def run(self):
+        result = self.target(*self.args)
+        self.on_finish(result)
+
 
 class Firebase:
     fb = pyrebase.initialize_app(firebaseConfig)
@@ -42,7 +56,7 @@ class Firebase:
         cloud_path = cloud_path.strip("/")
         path = cloud_path.split("/")
         file_name = path.pop()
-        upload_process = UploadProcess(firebaseConfig["storageBucket"], user, cloud_path, file_path, datetime.now().timestamp())
+        upload_process = UploadProcess(firebaseConfig["storageBucket"], user, cloud_path, file_path)
         self.computer.add_process(upload_process)
         while (not upload_process.is_completed()):
             print("Uploading...")
@@ -71,7 +85,7 @@ class Firebase:
 
     def update_file(self, user:User, cloud_path:str, file_path:str):
         cloud_path = cloud_path.strip("/")
-        process = UploadProcess(firebaseConfig["storageBucket"], user, cloud_path, file_path, datetime.now().timestamp())
+        process = UploadProcess(firebaseConfig["storageBucket"], user, cloud_path, file_path)
         self.computer.add_process(process)
         while (not process.is_completed()):
             print("Uploading...")
@@ -103,10 +117,9 @@ class Firebase:
         if (cache_meta.get("modified") != file.get('modified', '')):
             print('file is outdated')
             url = self.storage.child(f'files/{user.localId}/{cloud_path}').get_url(user.idToken)
-            process = DownloadProcess(url, user, cloud_path, datetime.now().timestamp())
+            process = DownloadProcess(url, user, cloud_path)
             self.computer.add_process(process)
             while (not process.is_completed()):
-                print("Downloading...")
                 sleep(0.5)
             try:
                 with open(f"{os.environ.get("CACHE_PATH")}/meta/{cloud_path.replace(".", "&123")}.json", 'w') as f:
@@ -116,4 +129,11 @@ class Firebase:
                 with open(f"{os.environ.get('CACHE_PATH')}/meta/{cloud_path.replace('.', '&123')}.json", 'w') as f:
                     f.write(json.dumps(file))
         return f"{os.environ.get("CACHE_PATH")}/{cloud_path}"
+
+    def upload_thread(self, user:User, cloud_path:str, file_path:str, on_finish:Callable):
+        CustomThread(self.upload_file, args=(user, cloud_path, file_path), on_finish=on_finish).start()
+    
+    def get_thread(self, user:User, cloud_path:str, on_finish:Callable):
+        CustomThread(self.get_file, args=(user, cloud_path), on_finish=on_finish).start()
+
 
